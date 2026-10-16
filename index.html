@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>正向彈性碰撞—微觀碰撞過程與質心座標系分析器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ========== 頂部控制列 ========== -->
+  <header id="topbar">
+    <div class="tb-row">
+      <div class="brand">
+        <div class="brand-main">正向彈性碰撞</div>
+        <div class="brand-sub">微觀碰撞過程 × 質心座標系分析器</div>
+      </div>
+
+      <div class="group">
+        <span class="glabel">碰撞情境</span>
+        <div class="seg" id="segScenario">
+          <button class="btn" data-scenario="chase">情境一：同向追撞 <span class="cond">(v₁ &gt; v₂ &gt; 0)</span></button>
+          <button class="btn" data-scenario="still">情境二：一動撞一靜 <span class="cond">(v₁ &gt; 0, v₂ = 0)</span></button>
+          <button class="btn" data-scenario="head">情境三：迎面對撞 <span class="cond">(v₁ &gt; 0, v₂ &lt; 0)</span></button>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="glabel">質量關係</span>
+        <div class="seg" id="segMass">
+          <button class="btn" data-mass="equal">等質量 m₁ = m₂</button>
+          <button class="btn" data-mass="unequal">不等質量 m₁ ≠ m₂ <span class="cond">(2 : 1)</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tb-row">
+      <div class="group">
+        <span class="glabel">觀測座標系</span>
+        <div class="seg tabs" id="segMode">
+          <button class="btn tab" data-mode="A">A｜對地座標系</button>
+          <button class="btn tab" data-mode="B">B｜質心座標系 (CM 不動)</button>
+          <button class="btn tab" data-mode="AB">A + B｜上下同步對照</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="glabel">教學圖層</span>
+        <div class="toggles" id="toggles">
+          <button class="toggle" data-layer="1"><span class="sw"></span>階段 1：基本速度、受力與形變位能</button>
+          <button class="toggle" data-layer="2"><span class="sw"></span>➕ 階段 2：加入質心與相對質心速度</button>
+          <button class="toggle" data-layer="3"><span class="sw"></span>➕ 階段 3：拆解系統內動能與質心動能</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========== 中間：資訊列 + 動畫區 ========== -->
+  <main id="stage">
+    <div id="infoBar">
+      <div id="phaseBox">
+        <div id="phaseTag">① 接觸前</div>
+        <div id="phaseDesc"></div>
+      </div>
+      <div id="readout"></div>
+    </div>
+    <div id="canvasWrap">
+      <canvas id="cv"></canvas>
+    </div>
+  </main>
+
+  <!-- ========== 底部：時間軸 + 能量儀表板 ========== -->
+  <footer id="bottom">
+    <section id="timeline" class="panel">
+      <div class="tl-row">
+        <button id="btnPlay" class="btn big primary">▶ 播放</button>
+        <button id="btnReset" class="btn big">🔄 重置回起點</button>
+        <div class="seg" id="segSpeed">
+          <span class="glabel inner">播放速度</span>
+          <button class="btn" data-speed="0.1">0.1x 超慢動作</button>
+          <button class="btn" data-speed="0.25">0.25x 慢動作</button>
+          <button class="btn" data-speed="0.5">0.5x</button>
+          <button class="btn" data-speed="1">1.0x</button>
+        </div>
+      </div>
+
+      <div class="tl-row keys">
+        <button class="btn key" data-key="15">⏮ 1. 碰撞起點 (剛接觸 15%)</button>
+        <button class="btn key" data-key="50">🎯 2. 極限狀態 (最大形變/最接近 50%)</button>
+        <button class="btn key" data-key="85">⏭ 3. 碰撞終點 (剛分離 85%)</button>
+      </div>
+
+      <div id="scrub">
+        <div class="scrub-head">
+          <span id="pLabel">進度 0.0%</span>
+          <span id="thetaLabel"></span>
+        </div>
+        <div id="scrubArea">
+          <div class="track" id="track">
+            <div class="zone z0" style="left:0;width:15%"><span>接觸前</span></div>
+            <div class="zone z1" style="left:15%;width:35%"><span>壓縮期</span></div>
+            <div class="zone z2" style="left:50%;width:35%"><span>恢復期</span></div>
+            <div class="zone z3" style="left:85%;width:15%"><span>分離後</span></div>
+            <div class="fill" id="fill"></div>
+            <div class="tick" style="left:15%"></div>
+            <div class="tick mid" style="left:50%"></div>
+            <div class="tick" style="left:85%"></div>
+            <div class="thumb" id="thumb"></div>
+          </div>
+        </div>
+        <div class="ticklabels">
+          <span style="left:0%" class="tl-start">0%</span>
+          <span style="left:15%">15% 剛接觸</span>
+          <span style="left:50%" class="mid">50% 最大形變</span>
+          <span style="left:85%">85% 剛分離</span>
+          <span style="left:100%" class="tl-end">100%</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="energy" class="panel">
+      <div class="e-head">能量儀表板 <small>（以系統總力學能 E<sub>total</sub> = 100% 為基準）</small></div>
+      <div class="e-body">
+        <div class="bar-group" id="grpBasic">
+          <div class="grp-title">基礎能量</div>
+          <div class="bars">
+            <div class="bar-col" id="colK1">
+              <div class="bar-val">0%</div>
+              <div class="bar-track"><div class="seg-fill f-k1"></div></div>
+              <div class="bar-name"><span class="sym">K<sub>1</sub></span><small>球1 動能</small></div>
+            </div>
+            <div class="bar-col" id="colK2">
+              <div class="bar-val">0%</div>
+              <div class="bar-track"><div class="seg-fill f-k2"></div></div>
+              <div class="bar-name"><span class="sym">K<sub>2</sub></span><small>球2 動能</small></div>
+            </div>
+            <div class="bar-col" id="colKt">
+              <div class="bar-val">0%</div>
+              <div class="bar-track"><div class="seg-fill f-kt a"></div><div class="seg-fill f-kt b"></div></div>
+              <div class="bar-name"><span class="sym">K<sub>t</sub></span><small>系統總動能</small></div>
+            </div>
+            <div class="bar-col" id="colUs">
+              <div class="bar-val">0%</div>
+              <div class="bar-track"><div class="seg-fill f-us"></div></div>
+              <div class="bar-name"><span class="sym">U<sub>s</sub></span><small>形變位能</small></div>
+            </div>
+            <div class="bar-col" id="colE">
+              <div class="bar-val">100%</div>
+              <div class="bar-track"><div class="seg-fill f-e"></div></div>
+              <div class="bar-name"><span class="sym">E<sub>total</sub></span><small>總力學能</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bar-group koenig" id="grpKoenig">
+          <div class="grp-title">柯尼希定理拆解：<b>K<sub>t</sub> = K<sub>c</sub> + K<sub>int</sub></b></div>
+          <div class="bars">
+            <div class="bar-col" id="colKc">
+              <div class="bar-val">0%</div>
+              <div class="bar-track"><div class="seg-fill f-kc"><span class="lock">🔒</span></div></div>
+              <div class="bar-name"><span class="sym">K<sub>c</sub></span> 🔒<small>質心動能（不變）</small></div>
+            </div>
+            <div class="bar-col" id="colKint">
+              <div class="bar-val">0%</div>
+              <div class="bar-track"><div class="seg-fill f-kint"></div></div>
+              <div class="bar-name"><span class="sym">K<sub>int</sub></span><small>系統內動能</small></div>
+            </div>
+            <div class="bar-col wide" id="colStack">
+              <div class="bar-val">100%</div>
+              <div class="stack-wrap">
+                <div class="bar-track">
+                  <div class="seg-fill f-kc s-c"><span>K<sub>c</sub></span></div>
+                  <div class="seg-fill f-kint s-i"><span>K<sub>int</sub></span></div>
+                  <div class="seg-fill f-us s-u"><span>U<sub>s</sub></span></div>
+                </div>
+                <div class="bracket" id="ktBracket"><span>K<sub>t</sub></span></div>
+              </div>
+              <div class="bar-name"><span class="sym sm">K<sub>c</sub>+K<sub>int</sub>+U<sub>s</sub></span><small>動態堆疊 = 100%</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="e-empty" id="eEmpty">請開啟「階段 1」或「階段 3」教學圖層以顯示能量儀表板</div>
+      </div>
+    </section>
+  </footer>
+</div>
+
+<div id="errBanner"></div>
+<script src="app.js"></script>
+</body>
+</html>
